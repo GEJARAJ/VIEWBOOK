@@ -1,0 +1,110 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id           String        @id @default(cuid())
+  email        String        @unique
+  name         String
+  passwordHash String        @default("pbkdf2:default")
+  avatarUrl    String?
+  company      String?
+  title        String?
+  role         String        @default("CLIENT") // CLIENT, FREELANCER, ARBITRATOR
+  balance      Float         @default(0.0)
+  inEscrow     Float         @default(0.0)
+  withdrawable Float         @default(0.0)
+  createdAt    DateTime      @default(now())
+}
+
+model Transaction {
+  id          String   @id
+  contractId  String
+  milestoneId String?
+  userId      String?
+  userEmail   String?
+  userName    String?
+  amount      Float
+  method      String   // CREDIT_CARD, ESCROW_WALLET, WIRE_TRANSFER
+  status      String   @default("SETTLED") // SETTLED, PENDING, FAILED
+  cardLast4   String?
+  txHash      String
+  createdAt   DateTime @default(now())
+}
+
+model Contract {
+  id              String       @id
+  title           String
+  category        String
+  termsSummary    String
+  status          String       @default("ACTIVE") // ACTIVE, COMPLETED, DISPUTED
+  totalAmount     Float
+  clientName      String
+  clientCompany   String
+  freelancerName  String
+  freelancerTitle String
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  milestones      Milestone[]
+  auditEvents     AuditEvent[]
+}
+
+model Milestone {
+  id                     String         @id
+  contractId             String
+  contract               Contract       @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  title                  String
+  description            String
+  amount                 Float
+  dueDate                String
+  status                 String         @default("AWAITING_FUNDS") // DRAFT, AWAITING_FUNDS, IN_PROGRESS, IN_VAULT_REVIEW, RELEASED, DISPUTED
+  escrowFundedAt         String?
+  deliverableSubmittedAt String?
+  releasedAt             String?
+  disputeReason          String?
+  deliverables           Deliverable[]
+  dispute                DisputeCase?
+}
+
+model Deliverable {
+  id                  String    @id
+  milestoneId         String
+  milestone           Milestone @relation(fields: [milestoneId], references: [id], onDelete: Cascade)
+  name                String
+  size                String
+  type                String    // code, image, document, archive
+  previewUrl          String?
+  codeSnippet         String?
+  sha256Hash          String
+  unlockedDownloadUrl String?
+  uploadedAt          String
+}
+
+model AuditEvent {
+  id              String   @id
+  contractId      String
+  contract        Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  milestoneId     String?
+  timestamp       String
+  actor           String
+  actorRole       String
+  action          String
+  details         String
+  sha256Signature String
+}
+
+model DisputeCase {
+  id          String    @id @default(cuid())
+  milestoneId String    @unique
+  milestone   Milestone @relation(fields: [milestoneId], references: [id], onDelete: Cascade)
+  reason      String
+  status      String    @default("PENDING") // PENDING, RESOLVED_FREELANCER, RESOLVED_CLIENT
+  verdict     String?
+  createdAt   DateTime  @default(now())
+  resolvedAt  DateTime?
+}
